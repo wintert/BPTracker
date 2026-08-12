@@ -12,6 +12,8 @@ import com.talwinter.bptracker.clinical.Protocol722
 import com.talwinter.bptracker.data.PhotoStore
 import com.talwinter.bptracker.data.Reading
 import com.talwinter.bptracker.extract.OpenAiExtractor
+import com.talwinter.bptracker.reminder.Reminders
+import java.time.LocalTime
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -61,6 +63,38 @@ class BpViewModel(app: Application) : AndroidViewModel(app) {
             hasOnboarded = onboarded
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeState())
+
+    // ---- Reminders ----
+    //
+    // Kept out of HomeState: only the settings screen needs them, and HomeState is already
+    // combining five flows (the typed combine overloads stop at five).
+
+    data class ReminderState(
+        val enabled: Boolean = false,
+        val morningMinute: Int = 7 * 60,
+        val eveningMinute: Int = 20 * 60
+    )
+
+    val reminders: StateFlow<ReminderState> = combine(
+        settings.remindersEnabled, settings.morningMinute, settings.eveningMinute
+    ) { enabled, morning, evening -> ReminderState(enabled, morning, evening) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReminderState())
+
+    fun applyReminders(enabled: Boolean, morningMinute: Int, eveningMinute: Int) =
+        viewModelScope.launch {
+            settings.setRemindersEnabled(enabled)
+            settings.setReminderTimes(morningMinute, eveningMinute)
+            val context = getApplication<Application>()
+            if (enabled) {
+                Reminders.schedule(
+                    context,
+                    LocalTime.ofSecondOfDay(morningMinute * 60L),
+                    LocalTime.ofSecondOfDay(eveningMinute * 60L)
+                )
+            } else {
+                Reminders.cancel(context)
+            }
+        }
 
     // ---- Extraction ----
 

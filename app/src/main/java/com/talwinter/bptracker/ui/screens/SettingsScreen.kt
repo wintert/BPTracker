@@ -18,6 +18,7 @@ import com.talwinter.bptracker.clinical.Guideline
 import com.talwinter.bptracker.clinical.MeasurementSetting
 import com.talwinter.bptracker.ui.BpViewModel
 import com.talwinter.bptracker.ui.HomeState
+import com.talwinter.bptracker.ui.components.ReminderSection
 import com.talwinter.bptracker.ui.theme.TextScale
 import com.talwinter.bptracker.ui.theme.Type
 import kotlinx.coroutines.launch
@@ -71,6 +72,10 @@ fun SettingsScreen(vm: BpViewModel, state: HomeState, onBack: () -> Unit) {
                         Text("128/82", style = Type.ReadingMedium)
                     }
                 }
+            }
+
+            Section("Reminders") {
+                ReminderSection(vm)
             }
 
             Section("Guideline") {

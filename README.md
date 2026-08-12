@@ -88,9 +88,20 @@ tools/         Extraction harness.
 
 ## Status
 
-Working on-device: onboarding, manual entry, live classification, 722 averaging with the
-protocol grid, history, CSV export, text scaling. 27 unit tests pass, including a sweep
-asserting every plausible reading lands in exactly one category under both guidelines.
+Verified on a physical device (Nothing Phone 3a Pro, Android 16), debug and signed
+release: onboarding and guideline choice, manual entry, live classification, 722 averaging
+with the protocol grid, history, CSV export, text scaling, and encrypted key storage
+surviving R8.
 
-Not yet verified on-device: the photo → extraction → review path (needs a key entered in
-Settings), and reminders.
+**47 unit tests, 0 failures:**
+
+| Suite | Covers |
+|---|---|
+| `ClinicalTest` | Both guidelines, home vs office, a sweep asserting every plausible reading lands in exactly one category |
+| `Protocol722Test` | Day-1 discard, memory-recall exclusion, morning/evening split, partial weeks |
+| `ExtractionReviewTest` | Memory-vs-user-profile, error codes, kPa, confidence tiers |
+| `CsvExportTest` | RFC 4180 quoting, ordering, empty cells for absent pulse |
+
+Not yet exercised on-device: the photo → extraction → review path. The extraction contract
+itself is proven against a real Transtek photo via the harness (153/84/72 at 99%), but the
+phone's camera → downscale → EXIF-rotate → upload path hasn't been run end to end.
