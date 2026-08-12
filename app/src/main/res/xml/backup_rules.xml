@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
+    <!-- An include list is allow-only: anything not named here is already excluded, so
+         the encrypted API key (secure_settings.xml) never leaves the device. Naming it in
+         an explicit <exclude> is contradictory and lint rejects it. -->
     <include domain="database" path="bp-tracker.db" />
     <include domain="file" path="reading_photos/" />
-    <!-- The API key is deliberately excluded from backups. -->
-    <exclude domain="sharedpref" path="secure_settings.xml" />
 </full-backup-content>
