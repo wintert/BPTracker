@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Photos of readings stay in app-private storage: they are health data and should
+         not land in the shared gallery unless the user deliberately puts them there. -->
+    <files-path name="reading_photos" path="reading_photos/" />
+    <cache-path name="camera_temp" path="camera_temp/" />
+</paths>

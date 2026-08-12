@@ -1,0 +1,35 @@
+# Secrets — never commit
+.env
+*.env
+!*.env.example
+local.properties
+
+# Signing
+*.keystore
+*.jks
+keystore.properties
+
+# Health data & test photos are personal
+tools/extract-test/*.jpeg
+tools/extract-test/*.jpg
+tools/extract-test/*.png
+tools/extract-test/out/
+
+# Vendored toolchain and local Gradle home — hundreds of MB, machine-specific.
+.tooling/
+.gradle-home/
+
+# Android / Gradle
+.gradle/
+build/
+app/build/
+captures/
+.cxx/
+*.apk
+*.aab
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+node_modules/

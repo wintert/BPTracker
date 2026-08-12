@@ -1,0 +1,11 @@
+{
+  "_comment": "Known-correct values per test image, keyed by filename. Used to score prompt changes so a 'fix' for one monitor cannot silently break another. Add a line every time you photograph a reading you have verified by eye.",
+
+  "BLOOD.jpeg": {
+    "systolic": 153,
+    "diastolic": 84,
+    "pulse": 72,
+    "indicates_average_or_memory": false,
+    "_notes": "Transtek. Traps: device clock reads 5/1/17 (D/M/YY) and is wrong; person icon with '1' is a USER PROFILE not memory recall; glare sits on the diastolic tens digit, so 8 can misread as 0. VERIFY diastolic by eye before trusting this entry."
+  }
+}

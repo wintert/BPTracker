@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <include domain="database" path="bp-tracker.db" />
+    <include domain="file" path="reading_photos/" />
+    <!-- The API key is deliberately excluded from backups. -->
+    <exclude domain="sharedpref" path="secure_settings.xml" />
+</full-backup-content>
