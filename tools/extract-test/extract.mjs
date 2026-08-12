@@ -53,9 +53,12 @@ if (!target) { console.error("Usage: node extract.mjs <image-or-folder> [--model
 
 const MIME = { ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".heic": "image/heic" };
 
-const TRUTH = existsSync(join(HERE, "truth.json"))
-  ? JSON.parse(readFileSync(join(HERE, "truth.json"), "utf8"))
+// truth.json holds shareable fixtures; truth.local.json holds your own verified readings
+// and is gitignored, so real health data never lands in the repo. Local wins on conflict.
+const readTruth = name => existsSync(join(HERE, name))
+  ? JSON.parse(readFileSync(join(HERE, name), "utf8"))
   : {};
+const TRUTH = { ...readTruth("truth.json"), ...readTruth("truth.local.json") };
 
 async function extract(imagePath) {
   const bytes = await readFile(imagePath);

@@ -10,6 +10,7 @@ local.properties
 keystore.properties
 
 # Health data & test photos are personal
+tools/extract-test/truth.local.json
 tools/extract-test/*.jpeg
 tools/extract-test/*.jpg
 tools/extract-test/*.png

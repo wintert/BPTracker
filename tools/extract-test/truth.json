@@ -1,11 +1,13 @@
 {
   "_comment": "Known-correct values per test image, keyed by filename. Used to score prompt changes so a 'fix' for one monitor cannot silently break another. Add a line every time you photograph a reading you have verified by eye.",
 
-  "BLOOD.jpeg": {
-    "systolic": 153,
-    "diastolic": 84,
-    "pulse": 72,
+  "_privacy": "These are synthetic values for a sample image, not anyone's real readings. Keep your own verified baselines in truth.local.json, which is gitignored and merged over this file at runtime.",
+
+  "sample-monitor.jpeg": {
+    "systolic": 128,
+    "diastolic": 82,
+    "pulse": 70,
     "indicates_average_or_memory": false,
-    "_notes": "Transtek. Traps: device clock reads 5/1/17 (D/M/YY) and is wrong; person icon with '1' is a USER PROFILE not memory recall; glare sits on the diastolic tens digit, so 8 can misread as 0. VERIFY diastolic by eye before trusting this entry."
+    "_notes": "Traps this fixture is meant to catch on a typical consumer cuff: an unset device clock showing a stale date; a person icon with '1' that is a USER PROFILE, not a memory recall; and glare across the diastolic tens digit, where a faded 8 reads as 0."
   }
 }
