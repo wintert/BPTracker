@@ -91,9 +91,10 @@ tools/         Extraction harness.
 Verified on a physical device (Nothing Phone 3a Pro, Android 16), debug and signed
 release: onboarding and guideline choice, manual entry, live classification, 722 averaging
 with the protocol grid, history, editing and deleting readings, CSV export, text scaling,
-encrypted key storage surviving R8, and the full photo → extraction → review → save path.
+encrypted key storage surviving R8, the full photo → extraction → review → save path, and
+the doctor-report PDF (generated on device, pulled off and rendered to check the layout).
 
-**47 unit tests, 0 failures:**
+**58 unit tests, 0 failures:**
 
 | Suite | Covers |
 |---|---|
@@ -101,6 +102,7 @@ encrypted key storage surviving R8, and the full photo → extraction → review
 | `Protocol722Test` | Day-1 discard, memory-recall exclusion, morning/evening split, partial weeks |
 | `ExtractionReviewTest` | Memory-vs-user-profile, error codes, kPa, confidence tiers |
 | `CsvExportTest` | RFC 4180 quoting, ordering, empty cells for absent pulse |
+| `AnalysisTest` | Inter-arm thresholds at exactly 10 and 15 mmHg, rolling average, variability |
 
 Not yet exercised on-device: **a reminder actually firing.** The settings screen,
 permission flow and scheduling are built and render correctly, but no notification has

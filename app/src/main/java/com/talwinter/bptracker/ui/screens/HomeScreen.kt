@@ -17,8 +17,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import com.talwinter.bptracker.clinical.Analysis
+import com.talwinter.bptracker.clinical.BpCategory
 import com.talwinter.bptracker.clinical.Clinical
 import com.talwinter.bptracker.clinical.Protocol722
+import com.talwinter.bptracker.data.Arm
 import com.talwinter.bptracker.data.Reading
 import com.talwinter.bptracker.ui.HomeState
 import com.talwinter.bptracker.ui.components.CategoryBadge
@@ -73,6 +76,8 @@ fun HomeScreen(
                     TrendChart(state.readings.take(30).reversed(), state.guideline)
                 }
             }
+
+            ArmCard(state)
 
             if (state.readings.isEmpty()) EmptyState()
 
@@ -180,6 +185,53 @@ private fun LatestStrip(reading: Reading, state: HomeState) {
             style = Type.Small,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+/**
+ * Only appears once both arms have enough readings to mean anything. Someone sensibly
+ * using one arm consistently never sees this card, which is correct — a difference
+ * computed from one or two readings on the other arm would be noise dressed as a finding.
+ */
+@Composable
+private fun ArmCard(state: HomeState) {
+    val comparison = Analysis.compareArms(state.readings) ?: return
+    val dark = isSystemInDarkTheme()
+    val higher = if (comparison.higherArm == Arm.LEFT) "Left" else "Right"
+
+    SectionCard("LEFT VERSUS RIGHT ARM") {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text("${comparison.systolicDifference}", style = Type.ReadingMedium)
+            Spacer(Modifier.width(Space.sm))
+            Text("mmHg apart", style = Type.Small, modifier = Modifier.padding(bottom = 5.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Spacer(Modifier.height(Space.sm))
+        Text(
+            "Left ${comparison.leftSystolic}/${comparison.leftDiastolic} " +
+                "(${comparison.leftCount} readings)   ·   " +
+                "Right ${comparison.rightSystolic}/${comparison.rightDiastolic} " +
+                "(${comparison.rightCount})",
+            style = Type.Small,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (comparison.isNotable) {
+            Spacer(Modifier.height(Space.sm))
+            Text(
+                "$higher arm reads higher, by enough to be worth mentioning to your doctor. " +
+                    "In the meantime, take your readings on the ${higher.lowercase()} arm — using the " +
+                    "lower one would understate your pressure.",
+                style = Type.Small,
+                color = Palette.signal(BpCategory.ELEVATED, dark)
+            )
+        } else {
+            Spacer(Modifier.height(Space.sm))
+            Text(
+                "Close enough that either arm is fine. Stay consistent with whichever you use.",
+                style = Type.Small,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

@@ -33,6 +33,9 @@ fun SettingsScreen(vm: BpViewModel, state: HomeState, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var apiKey by remember { mutableStateOf(if (vm.hasApiKey) MASKED else "") }
     var keySaved by remember { mutableStateOf(false) }
+    // Sharing reaches outside the app — a missing FileProvider root or no app able to
+    // receive the file should report itself, not take the process down mid-export.
+    var shareError by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -165,6 +168,45 @@ fun SettingsScreen(vm: BpViewModel, state: HomeState, onBack: () -> Unit) {
                 Button(
                     onClick = {
                         scope.launch {
+                            shareError = null
+                            try {
+                            val pdf = vm.buildReport()
+                            val uri = FileProvider.getUriForFile(
+                                context, "${context.packageName}.fileprovider", pdf
+                            )
+                            context.startActivity(
+                                Intent.createChooser(
+                                    Intent(Intent.ACTION_SEND).apply {
+                                        type = "application/pdf"
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        putExtra(Intent.EXTRA_SUBJECT, "Home blood pressure record")
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    },
+                                    "Share report"
+                                )
+                            )
+                            } catch (e: Exception) {
+                                shareError = "Couldn't share the report: ${e.message ?: "unknown error"}"
+                            }
+                        }
+                    },
+                    enabled = state.readings.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Doctor report (PDF)") }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "One page: the 7-day average and its category, morning versus evening, a chart, " +
+                        "and every reading in the period. Printed in black and white so it survives a " +
+                        "photocopier.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(14.dp))
+                OutlinedButton(
+                    onClick = {
+                        scope.launch {
+                            shareError = null
+                            try {
                             val csv = vm.exportCsv()
                             val dir = File(context.cacheDir, "export").apply { mkdirs() }
                             val file = File(dir, "blood-pressure.csv").apply { writeText(csv) }
@@ -181,11 +223,26 @@ fun SettingsScreen(vm: BpViewModel, state: HomeState, onBack: () -> Unit) {
                                     "Export readings"
                                 )
                             )
+                            } catch (e: Exception) {
+                                shareError = "Couldn't export the CSV: ${e.message ?: "unknown error"}"
+                            }
                         }
                     },
                     enabled = state.readings.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Export as CSV") }
+                Spacer(Modifier.height(6.dp))
+                shareError?.let { message ->
+                    Spacer(Modifier.height(10.dp))
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+                        Text(
+                            message,
+                            Modifier.padding(12.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                }
                 Spacer(Modifier.height(6.dp))
                 Text(
                     "Take this to a doctor's appointment, or keep it as a backup. Your data is never " +

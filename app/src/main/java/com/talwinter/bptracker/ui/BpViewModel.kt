@@ -171,5 +171,25 @@ class BpViewModel(app: Application) : AndroidViewModel(app) {
 
     suspend fun exportCsv(): String = repository.exportCsv(state.value.readings)
 
+    /**
+     * Builds the doctor report. Written to cache rather than persistent storage: it is a
+     * derived artefact, regenerated on demand, and it contains health data that has no
+     * business lingering on disk longer than the share it was made for.
+     */
+    suspend fun buildReport(): java.io.File = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val snapshot = state.value
+        val dir = java.io.File(getApplication<Application>().cacheDir, "export").apply { mkdirs() }
+        com.talwinter.bptracker.report.ReportGenerator.generate(
+            readings = snapshot.readings,
+            guideline = snapshot.guideline,
+            setting = snapshot.setting,
+            outputFile = java.io.File(dir, "blood-pressure-report.pdf")
+        )
+    }
+
+    /** Inter-arm comparison, or null when one arm has too few readings to say anything. */
+    fun armComparison(): com.talwinter.bptracker.clinical.Analysis.ArmComparison? =
+        com.talwinter.bptracker.clinical.Analysis.compareArms(state.value.readings)
+
     fun isCrisis(systolic: Int, diastolic: Int) = Clinical.isCrisis(systolic, diastolic)
 }

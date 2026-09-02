@@ -3,5 +3,13 @@
     <!-- Photos of readings stay in app-private storage: they are health data and should
          not land in the shared gallery unless the user deliberately puts them there. -->
     <files-path name="reading_photos" path="reading_photos/" />
+
+    <!-- Where the system camera writes a capture before it is copied into files/. -->
     <cache-path name="camera_temp" path="camera_temp/" />
+
+    <!-- Shared exports: the CSV and the doctor-report PDF.
+         Every directory a FileProvider URI can point at has to be declared here, or
+         getUriForFile throws "Failed to find configured root that contains ...". Missing
+         this made both Export as CSV and Doctor report crash on tap. -->
+    <cache-path name="export" path="export/" />
 </paths>
