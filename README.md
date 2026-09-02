@@ -91,7 +91,7 @@ tools/         Extraction harness.
 Verified on a physical device (Nothing Phone 3a Pro, Android 16), debug and signed
 release: onboarding and guideline choice, manual entry, live classification, 722 averaging
 with the protocol grid, history, editing and deleting readings, CSV export, text scaling,
-and encrypted key storage surviving R8.
+encrypted key storage surviving R8, and the full photo → extraction → review → save path.
 
 **47 unit tests, 0 failures:**
 
@@ -102,11 +102,7 @@ and encrypted key storage surviving R8.
 | `ExtractionReviewTest` | Memory-vs-user-profile, error codes, kPa, confidence tiers |
 | `CsvExportTest` | RFC 4180 quoting, ordering, empty cells for absent pulse |
 
-Not yet exercised on-device:
-
-- **The photo → extraction → review path.** The extraction contract itself is proven
-  against a real Transtek photo via the harness (153/84/72 at 99%), but the phone's
-  camera → downscale → EXIF-rotate → upload chain hasn't been run end to end.
-- **A reminder actually firing.** The settings screen, permission flow and scheduling are
-  built and render correctly, but no notification has been observed arriving — that needs
-  waiting for a real alarm, or setting one a minute ahead.
+Not yet exercised on-device: **a reminder actually firing.** The settings screen,
+permission flow and scheduling are built and render correctly, but no notification has
+been observed arriving — that needs waiting for a real alarm, or setting one a minute
+ahead.
