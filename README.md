@@ -91,8 +91,9 @@ tools/         Extraction harness.
 Verified on a physical device (Nothing Phone 3a Pro, Android 16), debug and signed
 release: onboarding and guideline choice, manual entry, live classification, 722 averaging
 with the protocol grid, history, editing and deleting readings, CSV export, text scaling,
-encrypted key storage surviving R8, the full photo → extraction → review → save path, and
-the doctor-report PDF (generated on device, pulled off and rendered to check the layout).
+encrypted key storage surviving R8, the full photo → extraction → review → save path, the
+doctor-report PDF (generated on device, pulled off and rendered to check the layout), and
+morning/evening reminders.
 
 **58 unit tests, 0 failures:**
 
@@ -104,8 +105,7 @@ the doctor-report PDF (generated on device, pulled off and rendered to check the
 | `CsvExportTest` | RFC 4180 quoting, ordering, empty cells for absent pulse |
 | `AnalysisTest` | Inter-arm thresholds at exactly 10 and 15 mmHg, rolling average, variability |
 
-Not yet confirmed on-device: **a reminder firing from its own alarm.** The receiver, the
-channel and the notification are confirmed working (firing the receiver directly posts the
-notification), and the alarm is confirmed registered — but delivery at the requested minute
-has not yet been observed since switching from inexact to exact alarms. See the comment at
-the top of `reminder/Reminders.kt` for why inexact alarms were abandoned.
+Everything is now confirmed on a physical device, including reminders: an exact alarm
+fired on the minute, the receiver posted the notification, and it re-armed itself for the
+next day. See the comment at the top of `reminder/Reminders.kt` for why inexact alarms
+were abandoned — they were registered and simply never delivered.
