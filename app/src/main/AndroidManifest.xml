@@ -10,6 +10,16 @@
     <!-- Re-arms the daily alarms after a restart, which otherwise silently drops them. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!-- Reminders must land at the minute the user picked. Inexact alarms were tried first
+         and measurably did not fire: Android batches long-interval inexact alarms into
+         power-chosen windows, so an alarm set for 15:51 sat undelivered.
+         USE_EXACT_ALARM (API 33+) is granted at install with no prompt; SCHEDULE_EXACT_ALARM
+         covers API 31-32, where the user may have to allow it in system settings. -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission
+        android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        android:maxSdkVersion="32" />
+
     <!-- Taking a photo of the monitor. Declared optional so the app installs on any device. -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 

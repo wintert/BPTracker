@@ -104,7 +104,8 @@ the doctor-report PDF (generated on device, pulled off and rendered to check the
 | `CsvExportTest` | RFC 4180 quoting, ordering, empty cells for absent pulse |
 | `AnalysisTest` | Inter-arm thresholds at exactly 10 and 15 mmHg, rolling average, variability |
 
-Not yet exercised on-device: **a reminder actually firing.** The settings screen,
-permission flow and scheduling are built and render correctly, but no notification has
-been observed arriving — that needs waiting for a real alarm, or setting one a minute
-ahead.
+Not yet confirmed on-device: **a reminder firing from its own alarm.** The receiver, the
+channel and the notification are confirmed working (firing the receiver directly posts the
+notification), and the alarm is confirmed registered — but delivery at the requested minute
+has not yet been observed since switching from inexact to exact alarms. See the comment at
+the top of `reminder/Reminders.kt` for why inexact alarms were abandoned.

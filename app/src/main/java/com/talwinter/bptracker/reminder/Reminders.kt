@@ -7,10 +7,14 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.talwinter.bptracker.MainActivity
 import com.talwinter.bptracker.R
+import com.talwinter.bptracker.data.SettingsStore
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
@@ -19,16 +23,33 @@ import java.time.ZoneId
  * Morning and evening prompts.
  *
  * Without these the 722 window quietly goes unfinished — the grid shows what you owe, but
- * only if you open the app, and the whole point is that you often won't. Two nudges a day
- * is the minimum that makes a 7-day protocol actually completable.
+ * only if you open the app, and the whole point is that you often won't.
  *
- * Deliberately inexact alarms: this is a health habit, not an appointment. Letting Android
- * batch them costs nothing and avoids the exact-alarm permission, which on Android 13+
- * would mean asking the user for something intrusive to no real benefit.
+ * ## Why exact alarms
+ *
+ * This originally used setInexactRepeating with INTERVAL_DAY, on the reasoning that a
+ * health habit is not an appointment and batching costs nothing. That was wrong, and
+ * measurably so: an alarm set for 15:51 was still sitting undelivered in the queue minutes
+ * later, with the app in the ACTIVE standby bucket and notifications granted. Android
+ * batches long-interval inexact alarms into windows chosen for power, not for the minute
+ * you asked for, so "roughly on time" can mean "not today".
+ *
+ * A reminder that might not arrive is not a reminder, so this now uses exact alarms.
+ *
+ * USE_EXACT_ALARM (API 33+) is granted at install with no prompt, which suits an app whose
+ * user-facing job is to fire at a chosen time. On older releases, or if exact scheduling is
+ * somehow unavailable, it falls back to a tight setWindow rather than failing silently.
+ *
+ * Exact alarms cannot repeat, so each firing re-arms the next one — and BootReceiver
+ * re-arms both after a restart, since alarms do not survive reboot.
  */
 object Reminders {
 
     const val CHANNEL_ID = "bp_reminders"
+    const val EXTRA_SLOT = "slot"
+    const val MORNING = "morning"
+    const val EVENING = "evening"
+
     private const val REQUEST_MORNING = 1001
     private const val REQUEST_EVENING = 1002
 
@@ -45,29 +66,37 @@ object Reminders {
 
     fun schedule(context: Context, morning: LocalTime, evening: LocalTime) {
         ensureChannel(context)
-        scheduleOne(context, morning, REQUEST_MORNING, MORNING)
-        scheduleOne(context, evening, REQUEST_EVENING, EVENING)
+        armNext(context, morning, REQUEST_MORNING, MORNING)
+        armNext(context, evening, REQUEST_EVENING, EVENING)
     }
 
     fun cancel(context: Context) {
         val alarms = context.getSystemService(AlarmManager::class.java)
-        listOf(REQUEST_MORNING to MORNING, REQUEST_EVENING to EVENING).forEach { (code, slot) ->
-            alarms.cancel(pendingIntent(context, code, slot))
-        }
+        alarms.cancel(pendingIntent(context, REQUEST_MORNING, MORNING))
+        alarms.cancel(pendingIntent(context, REQUEST_EVENING, EVENING))
     }
 
-    private fun scheduleOne(context: Context, time: LocalTime, requestCode: Int, slot: String) {
+    /** Re-arms one slot for its next occurrence. Called after a firing, and at boot. */
+    fun armNext(context: Context, time: LocalTime, requestCode: Int, slot: String) {
         val alarms = context.getSystemService(AlarmManager::class.java)
-        val now = LocalDateTime.now()
+        val zone = ZoneId.systemDefault()
+
+        val now = LocalDateTime.now(zone)
         var next = now.toLocalDate().atTime(time)
         if (!next.isAfter(now)) next = next.plusDays(1)
+        val triggerAt = next.atZone(zone).toInstant().toEpochMilli()
 
-        alarms.setInexactRepeating(
-            AlarmManager.RTC_WAKEUP,
-            next.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
-            AlarmManager.INTERVAL_DAY,
-            pendingIntent(context, requestCode, slot)
-        )
+        val intent = pendingIntent(context, requestCode, slot)
+        val canBeExact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            alarms.canScheduleExactAlarms()
+
+        if (canBeExact) {
+            // AllowWhileIdle so Doze cannot swallow an evening reminder on a quiet phone.
+            alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, intent)
+        } else {
+            // Degraded but honest: a ten-minute window instead of an unbounded batch.
+            alarms.setWindow(AlarmManager.RTC_WAKEUP, triggerAt, 10 * 60 * 1000L, intent)
+        }
     }
 
     private fun pendingIntent(context: Context, requestCode: Int, slot: String): PendingIntent =
@@ -78,9 +107,8 @@ object Reminders {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-    const val EXTRA_SLOT = "slot"
-    const val MORNING = "morning"
-    const val EVENING = "evening"
+    fun requestCodeFor(slot: String): Int =
+        if (slot == MORNING) REQUEST_MORNING else REQUEST_EVENING
 }
 
 class ReminderReceiver : BroadcastReceiver() {
@@ -97,9 +125,7 @@ class ReminderReceiver : BroadcastReceiver() {
 
         val notification = NotificationCompat.Builder(context, Reminders.CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle(
-                if (slot == Reminders.MORNING) "Morning reading" else "Evening reading"
-            )
+            .setContentTitle(if (slot == Reminders.MORNING) "Morning reading" else "Evening reading")
             .setContentText(
                 if (slot == Reminders.MORNING)
                     "Before medication and breakfast. Sit 5 minutes first, then two readings."
@@ -116,6 +142,27 @@ class ReminderReceiver : BroadcastReceiver() {
         runCatching {
             NotificationManagerCompat.from(context)
                 .notify(if (slot == Reminders.MORNING) 1 else 2, notification)
+        }
+
+        // Exact alarms are one-shot, so tomorrow's has to be booked now. Without this the
+        // reminder fires exactly once and then silently stops.
+        val pending = goAsync()
+        try {
+            val settings = SettingsStore(context)
+            runBlocking {
+                if (!settings.remindersEnabled.first()) return@runBlocking
+                val minute =
+                    if (slot == Reminders.MORNING) settings.morningMinute.first()
+                    else settings.eveningMinute.first()
+                Reminders.armNext(
+                    context,
+                    LocalTime.ofSecondOfDay(minute * 60L),
+                    Reminders.requestCodeFor(slot),
+                    slot
+                )
+            }
+        } finally {
+            pending.finish()
         }
     }
 }
