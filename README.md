@@ -90,8 +90,8 @@ tools/         Extraction harness.
 
 Verified on a physical device (Nothing Phone 3a Pro, Android 16), debug and signed
 release: onboarding and guideline choice, manual entry, live classification, 722 averaging
-with the protocol grid, history, CSV export, text scaling, and encrypted key storage
-surviving R8.
+with the protocol grid, history, editing and deleting readings, CSV export, text scaling,
+reminders, and encrypted key storage surviving R8.
 
 **47 unit tests, 0 failures:**
 

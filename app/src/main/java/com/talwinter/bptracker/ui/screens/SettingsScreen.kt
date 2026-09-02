@@ -2,6 +2,8 @@ package com.talwinter.bptracker.ui.screens
 
 import android.content.Intent
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -24,7 +26,7 @@ import com.talwinter.bptracker.ui.theme.Type
 import kotlinx.coroutines.launch
 import java.io.File
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(vm: BpViewModel, state: HomeState, onBack: () -> Unit) {
     val context = LocalContext.current
@@ -52,12 +54,22 @@ fun SettingsScreen(vm: BpViewModel, state: HomeState, onBack: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                // FlowRow, not Row: five chips do not fit one line, and at larger text
+                // scales they fit even less. A plain Row squeezed the last chip until
+                // "Largest" wrapped one letter per line.
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     TextScale.options.forEach { option ->
                         FilterChip(
                             selected = kotlin.math.abs(state.textScale - option) < 0.01f,
                             onClick = { vm.setTextScale(option) },
-                            label = { Text(TextScale.label(option)) }
+                            label = { Text(TextScale.label(option)) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.primary
+                            )
                         )
                     }
                 }

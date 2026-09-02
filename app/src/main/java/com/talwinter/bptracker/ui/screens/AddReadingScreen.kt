@@ -37,8 +37,12 @@ import com.talwinter.bptracker.ui.BpViewModel
 import com.talwinter.bptracker.ui.HomeState
 import com.talwinter.bptracker.ui.components.CategoryBadge
 import com.talwinter.bptracker.ui.components.CrisisDialog
+import com.talwinter.bptracker.ui.components.DeleteReadingDialog
+import com.talwinter.bptracker.ui.components.WhenTakenRow
+import com.talwinter.bptracker.ui.theme.Space
 import java.io.File
-import java.time.LocalTime
+import java.time.Instant
+import java.time.ZoneId
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,6 +62,8 @@ fun AddReadingScreen(
     var arm by remember { mutableStateOf(Arm.LEFT) }
     var position by remember { mutableStateOf(BodyPosition.SITTING) }
     var occasion by remember { mutableStateOf(defaultOccasion()) }
+    // Once the user picks morning/evening/other themselves, stop second-guessing them.
+    var occasionChosenByUser by remember { mutableStateOf(false) }
     var meds by remember { mutableStateOf(MedicationState.NOT_APPLICABLE) }
     var irregular by remember { mutableStateOf(false) }
     var excludeFromAverages by remember { mutableStateOf(false) }
@@ -69,6 +75,7 @@ fun AddReadingScreen(
     var extractedValues by remember { mutableStateOf<Triple<Int?, Int?, Int?>?>(null) }
     var showCrisis by remember { mutableStateOf(false) }
     var pendingSave by remember { mutableStateOf<Reading?>(null) }
+    var showDelete by remember { mutableStateOf(false) }
 
     // Keyed on the list too: on a cold start the readings may still be empty when this
     // screen composes, and a snapshot read would leave the form blank — saving would then
@@ -78,7 +85,8 @@ fun AddReadingScreen(
             state.readings.find { it.id == readingId }?.let { r ->
                 systolic = r.systolic.toString(); diastolic = r.diastolic.toString()
                 pulse = r.pulse?.toString().orEmpty(); notes = r.notes.orEmpty()
-                arm = r.arm; position = r.position; occasion = r.occasion; meds = r.medicationState
+                arm = r.arm; position = r.position; meds = r.medicationState
+                occasion = r.occasion; occasionChosenByUser = true
                 irregular = r.irregularHeartbeat; excludeFromAverages = r.excludeFromAverages
                 photoUri = r.photoUri?.let(Uri::parse); timestamp = r.timestamp; source = r.source
             }
@@ -118,6 +126,18 @@ fun AddReadingScreen(
             // Gallery photos carry the true capture time; "now" would misdate old photos.
             done.exifMillis?.let { timestamp = it }
         }
+    }
+
+    /*
+     * Keep "when" consistent with the time actually entered.
+     *
+     * Without this there is a nasty silent trap: open the screen at 14:00 (so the guess is
+     * "Other"), correct the time back to this morning's 07:00, save — and the reading is
+     * excluded from the 7-day protocol, because only morning and evening sessions count.
+     * The number looks right in history and quietly never reaches the average.
+     */
+    LaunchedEffect(timestamp) {
+        if (!occasionChosenByUser) occasion = occasionFor(timestamp)
     }
 
     val sys = systolic.toIntOrNull()
@@ -244,7 +264,9 @@ fun AddReadingScreen(
                 }
             }
 
-            ChoiceRow("When", Occasion.entries.map { it to it.label() }, occasion) { occasion = it }
+            ChoiceRow("When", Occasion.entries.map { it to it.label() }, occasion) {
+                occasion = it; occasionChosenByUser = true
+            }
             ChoiceRow("Arm", Arm.entries.map { it to it.name.lowercase().replaceFirstChar(Char::uppercase) }, arm) { arm = it }
             ChoiceRow("Position", BodyPosition.entries.map { it to it.name.lowercase().replaceFirstChar(Char::uppercase) }, position) { position = it }
             ChoiceRow("Medication", MedicationState.entries.map { it to it.label() }, meds) { meds = it }
@@ -266,8 +288,7 @@ fun AddReadingScreen(
                 modifier = Modifier.fillMaxWidth(), minLines = 2
             )
 
-            Text("Time: ${formatWhen(timestamp)}", style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            WhenTakenRow(timestamp = timestamp, onChange = { timestamp = it })
 
             Button(
                 onClick = {
@@ -280,8 +301,33 @@ fun AddReadingScreen(
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Save") }
 
+            if (readingId != null) {
+                Spacer(Modifier.height(Space.sm))
+                OutlinedButton(
+                    onClick = { showDelete = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) { Text("Delete reading") }
+            }
+
             Spacer(Modifier.height(32.dp))
         }
+    }
+
+    if (showDelete && readingId != null) {
+        DeleteReadingDialog(
+            systolic = sys ?: 0,
+            diastolic = dia ?: 0,
+            hasPhoto = photoUri != null,
+            onConfirm = {
+                state.readings.find { it.id == readingId }?.let(vm::delete)
+                showDelete = false
+                onDone()
+            },
+            onDismiss = { showDelete = false }
+        )
     }
 
     if (showCrisis && pendingSave != null) {
@@ -369,9 +415,17 @@ private fun MedicationState.label() = when (this) {
     MedicationState.NOT_APPLICABLE -> "N/A"
 }
 
-/** Sensible guess so the common case needs no tapping; always overridable. */
-private fun defaultOccasion(): Occasion = when (LocalTime.now().hour) {
-    in 4..11 -> Occasion.MORNING
-    in 17..23 -> Occasion.EVENING
-    else -> Occasion.OTHER
-}
+/**
+ * Sensible guess so the common case needs no tapping; always overridable.
+ *
+ * Derived from the reading's own timestamp rather than "now", so correcting the time of a
+ * reading taken earlier also fixes which protocol session it belongs to.
+ */
+private fun occasionFor(millis: Long, zone: ZoneId = ZoneId.systemDefault()): Occasion =
+    when (Instant.ofEpochMilli(millis).atZone(zone).hour) {
+        in 4..11 -> Occasion.MORNING
+        in 17..23 -> Occasion.EVENING
+        else -> Occasion.OTHER
+    }
+
+private fun defaultOccasion(): Occasion = occasionFor(System.currentTimeMillis())
