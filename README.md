@@ -105,7 +105,14 @@ morning/evening reminders.
 | `CsvExportTest` | RFC 4180 quoting, ordering, empty cells for absent pulse |
 | `AnalysisTest` | Inter-arm thresholds at exactly 10 and 15 mmHg, rolling average, variability |
 
-Everything is now confirmed on a physical device, including reminders: an exact alarm
-fired on the minute, the receiver posted the notification, and it re-armed itself for the
-next day. See the comment at the top of `reminder/Reminders.kt` for why inexact alarms
-were abandoned — they were registered and simply never delivered.
+Everything is confirmed on a physical device, including reminders: an exact alarm fires on
+the minute, the receiver posts a heads-up notification, and it re-arms itself for the next
+day.
+
+Two things worth knowing before debugging reminders again:
+
+- Inexact alarms were tried first and never delivered — see the comment at the top of
+  `reminder/Reminders.kt`.
+- `ReminderReceiver` is **not exported**, so `adb shell am broadcast` cannot reach it. It
+  reports `Broadcast completed: result=0` while doing nothing at all. Only a real
+  AlarmManager delivery exercises this path; the receiver logs under the tag `BpReminder`.
