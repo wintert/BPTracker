@@ -8,6 +8,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.talwinter.bptracker.MainActivity
@@ -45,7 +46,15 @@ import java.time.ZoneId
  */
 object Reminders {
 
-    const val CHANNEL_ID = "bp_reminders"
+    /**
+     * Versioned on purpose. A channel's importance is fixed once created — only the user
+     * can change it afterwards — so raising IMPORTANCE_DEFAULT to HIGH in code does
+     * nothing on an install where the old channel already exists. Bumping the id is the
+     * only way to ship the change; the previous channel is deleted so it does not sit in
+     * the system settings list forever.
+     */
+    const val CHANNEL_ID = "bp_reminders_v2"
+    private const val LEGACY_CHANNEL_ID = "bp_reminders"
     const val EXTRA_SLOT = "slot"
     const val MORNING = "morning"
     const val EVENING = "evening"
@@ -54,14 +63,22 @@ object Reminders {
     private const val REQUEST_EVENING = 1002
 
     fun ensureChannel(context: Context) {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        manager.deleteNotificationChannel(LEGACY_CHANNEL_ID)
+
+        // HIGH so it appears as a heads-up banner rather than only a status-bar icon.
+        // Twice a day, at times the user chose, for something they have to stop and do —
+        // a silent icon is too easy to scroll past, and a missed session leaves a hole in
+        // the 7-day window that cannot be filled in later.
         val channel = NotificationChannel(
             CHANNEL_ID,
             "Reading reminders",
-            NotificationManager.IMPORTANCE_DEFAULT
+            NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "Morning and evening prompts to take a blood pressure reading."
+            enableVibration(true)
         }
-        context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        manager.createNotificationChannel(channel)
     }
 
     fun schedule(context: Context, morning: LocalTime, evening: LocalTime) {
@@ -114,6 +131,7 @@ object Reminders {
 class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val slot = intent.getStringExtra(Reminders.EXTRA_SLOT) ?: Reminders.MORNING
+        Log.i(TAG, "onReceive slot=$slot")
         Reminders.ensureChannel(context)
 
         val open = PendingIntent.getActivity(
@@ -132,17 +150,23 @@ class ReminderReceiver : BroadcastReceiver() {
                 else
                     "Two readings, a minute or two apart."
             )
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            // Priority matters on API < 26, where channels do not exist; the channel
+            // importance governs modern releases. Both say the same thing.
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setAutoCancel(true)
             .setContentIntent(open)
             .build()
 
         // POST_NOTIFICATIONS may have been revoked since scheduling; dropping the nudge is
-        // the correct outcome, not a crash.
+        // the correct outcome, not a crash. It is logged, though — swallowing this silently
+        // made a real failure undiagnosable.
+        val manager = NotificationManagerCompat.from(context)
+        Log.i(TAG, "notificationsEnabled=${manager.areNotificationsEnabled()}")
         runCatching {
-            NotificationManagerCompat.from(context)
-                .notify(if (slot == Reminders.MORNING) 1 else 2, notification)
-        }
+            manager.notify(if (slot == Reminders.MORNING) 1 else 2, notification)
+            Log.i(TAG, "notify posted for slot=$slot on channel=${Reminders.CHANNEL_ID}")
+        }.onFailure { Log.e(TAG, "notify failed", it) }
 
         // Exact alarms are one-shot, so tomorrow's has to be booked now. Without this the
         // reminder fires exactly once and then silently stops.
@@ -161,8 +185,14 @@ class ReminderReceiver : BroadcastReceiver() {
                     slot
                 )
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "re-arm failed", e)
         } finally {
             pending.finish()
         }
+    }
+
+    private companion object {
+        const val TAG = "BpReminder"
     }
 }
